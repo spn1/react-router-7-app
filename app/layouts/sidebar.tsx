@@ -1,15 +1,37 @@
-import { Outlet, Form, Link } from "react-router";
+import { useEffect, useRef } from "react";
+import {
+  Outlet,
+  Form,
+  NavLink,
+  Link,
+  useNavigation,
+  useSubmit,
+} from "react-router";
 import type { Route } from "./+types/root";
 
 import { getContacts } from "../data";
 
-export async function loader() {
-  const contacts = await getContacts();
-  return { contacts };
+export async function loader({ request }: Route.LoaderArgs) {
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q");
+  const contacts = await getContacts(q);
+  return { contacts, q };
 }
 
 export default function App({ loaderData }: Route.ComponentProps) {
-  const { contacts } = loaderData;
+  const { contacts, q } = loaderData;
+  const navigation = useNavigation();
+  const submit = useSubmit();
+  const searchInputRef = useRef(null);
+  const searching =
+    navigation.location &&
+    new URLSearchParams(navigation.location.search).has("q");
+
+  console.log("navigation state:", navigation.state);
+  useEffect(() => {
+    searchInputRef.current.value = q || "";
+  }, []);
+
   return (
     <>
       <div id="sidebar">
@@ -17,15 +39,22 @@ export default function App({ loaderData }: Route.ComponentProps) {
           <Link to="about">React Router Contacts</Link>
         </h1>
         <div>
-          <Form id="search-form" role="search">
+          <Form
+            id="search-form"
+            role="search"
+            onChange={(event) => submit(event.currentTarget)}
+          >
             <input
               aria-label="Search contacts"
               id="q"
               name="q"
               placeholder="Search"
+              className={searching ? "loading" : ""}
               type="search"
+              defaultValue={q || ""}
+              ref={searchInputRef}
             />
-            <div aria-hidden hidden={true} id="search-spinner" />
+            <div aria-hidden hidden={!searching} id="search-spinner" />
           </Form>
           <Form method="post">
             <button type="submit">New</button>
@@ -36,7 +65,12 @@ export default function App({ loaderData }: Route.ComponentProps) {
             <ul>
               {contacts.map((contact) => (
                 <li key={contact.id}>
-                  <Link to={`contacts/${contact.id}`}>
+                  <NavLink
+                    className={({ isActive, isPending }) =>
+                      isActive ? "active" : isPending ? "pending" : ""
+                    }
+                    to={`contacts/${contact.id}`}
+                  >
                     {contact.first || contact.last ? (
                       <>
                         {contact.first} {contact.last}
@@ -45,7 +79,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
                       <i>No Name</i>
                     )}
                     {contact.favorite ? <span>★</span> : null}
-                  </Link>
+                  </NavLink>
                 </li>
               ))}
             </ul>
@@ -56,7 +90,10 @@ export default function App({ loaderData }: Route.ComponentProps) {
           )}
         </nav>
       </div>
-      <div id="detail">
+      <div
+        className={navigation.state === "loading" ? "loading" : ""}
+        id="detail"
+      >
         <Outlet />
       </div>
     </>
