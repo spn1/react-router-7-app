@@ -27,7 +27,6 @@ export default function App({ loaderData }: Route.ComponentProps) {
     navigation.location &&
     new URLSearchParams(navigation.location.search).has("q");
 
-  console.log("navigation state:", navigation.state);
   useEffect(() => {
     searchInputRef.current.value = q || "";
   }, []);
